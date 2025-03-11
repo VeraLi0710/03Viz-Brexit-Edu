@@ -131,14 +131,14 @@ body {
     position: fixed;  
     top: 50px;  
     right: 20px;  
-    background: rgba(255, 255, 255, 0.9); /* 统一透明度 */  
-    border: 0.1px solid rgba(0, 0, 0, 0.1); /* 较细的边框 */  
+    background: rgba(255, 255, 255, 0.9); /* Unified opacity */  
+    border: 0.1px solid rgba(0, 0, 0, 0.1); /* Thinner border */  
     z-index: 1001;  
     max-height: 200px;  
-    overflow-y: auto; /* 允许内容区域滚动 */  
+    overflow-y: auto; /* Allow content area scrolling */  
     width: 300px;  
     display: none;  
-    font-size: 10px; /* 确保搜索建议的字体大小一致 */  
+    font-size: 10px; /* Ensure consistent font size for search suggestions */  
 }  
 
 .suggestion-item {  
@@ -524,21 +524,21 @@ body {
         
 const processMapData = (map, geojsonUrl, heatmapColor, pointColor, yearLabel) => {  
     map.on('load', () => {  
-        // Load school data  
+        // Load school data
         fetch(geojsonUrl)  
             .then(response => response.json())  
             .then(data => {  
                 const filteredFeatures = data.features.filter(f => f.geometry?.type === "Point" && f.properties?.students > 0);  
                 const filteredData = { type: 'FeatureCollection', features: filteredFeatures };  
 
-                // Load country centroid data  
+                // Load country centroid data
                 loadCountryCentroids(map, filteredFeatures);  
 
-                // Add heatmap and school point layers  
+                // Add heatmap and school point layers
                 addHeatmapLayer(map, filteredData, heatmapColor);  
                 addSchoolsPointLayer(map, filteredData, pointColor);  
 
-                // Ensure events are bound after layers are loaded  
+                // Ensure events are bound after layers are loaded
                 setupMapInteractions(map, filteredFeatures, yearLabel);  
             })  
             .catch(error => console.error("Error loading school data:", error));  
@@ -549,25 +549,25 @@ const processMapData = (map, geojsonUrl, heatmapColor, pointColor, yearLabel) =>
         
 const processBrexitData = (map, geojsonUrlBefore, geojsonUrlAfter, heatmapColor, pointColor, yearLabel) => {  
     map.on('load', () => {  
-        // Load pre-Brexit school data  
+        // Load pre-Brexit school data
         fetch(geojsonUrlBefore)  
             .then(response => response.json())  
             .then(dataBefore => {  
                 const filteredFeaturesBefore = dataBefore.features.filter(f => f.geometry?.type === "Point" && f.properties?.students > 0);  
                 
-                // Load post-Brexit school data  
+                // Load post-Brexit school data
                 fetch(geojsonUrlAfter)  
                     .then(response => response.json())  
                     .then(dataAfter => {  
                         const filteredFeaturesAfter = dataAfter.features.filter(f => f.geometry?.type === "Point" && f.properties?.students > 0);  
                         
-                        // Merge both datasets  
+                        // Merge both datasets
                         const allFeatures = [...filteredFeaturesBefore, ...filteredFeaturesAfter];  
 
-                        // Load country centroid data  
+                        // Load country centroid data
                         loadCountryCentroids(map, allFeatures, dataBefore, dataAfter);  
 
-                        // Add heatmap and school point layers  
+                        // Add heatmap and school point layers
                         addHeatmapLayer(map, allFeatures, heatmapColor);  
                         addSchoolsPointLayer(map, allFeatures, pointColor);  
                     })  
@@ -735,7 +735,7 @@ dots.forEach(dot => {
 });  
         
     
-// 修改 drawFlowLines 函数，使其区分颜色  
+// Modify drawFlowLines function to differentiate colors
 const drawFlowLines = (map, countryCentroids, allFeatures) => {  
     const studentsFlowData = { type: 'FeatureCollection', features: [] };  
 
@@ -811,9 +811,10 @@ const drawFlowLines = (map, countryCentroids, allFeatures) => {
         });  
     }  
 };  
-// 继续定义其余功能...  
 
-// 添加热力图图层  
+// Continue defining remaining functions...
+
+// Add heatmap layer
 const addHeatmapLayer = (map, filteredData, heatmapColor) => {  
     map.addSource('schools-heatmap', {  
         type: 'geojson',  
@@ -867,7 +868,7 @@ const addHeatmapLayer = (map, filteredData, heatmapColor) => {
     });  
 };  
 
-// 添加学校点图层  
+// Add school points layer
 const addSchoolsPointLayer = (map, filteredData, pointColor) => {  
     map.addSource('schools-points', { type: 'geojson', data: filteredData });  
     map.addLayer({  
@@ -900,7 +901,7 @@ const addSchoolsPointLayer = (map, filteredData, pointColor) => {
     });  
 };  
 
-// 适应地图边界   
+// Adjust map boundaries
 const fitMapToBounds = (map, filteredFeatures) => {  
     const bounds = new mapboxgl.LngLatBounds();  
     filteredFeatures.forEach(f => {  
@@ -909,7 +910,7 @@ const fitMapToBounds = (map, filteredFeatures) => {
     map.fitBounds(bounds, { padding: 50 });  
 };  
 
-// 设置点击和鼠标事件   
+// Set up click and mouse events
 const setupMapInteractions = (map, filteredFeatures, yearLabel) => {  
     map.on('click', 'schools-points-layer', (e) => {  
         const feature = e.features[0];  
@@ -922,12 +923,12 @@ const setupMapInteractions = (map, filteredFeatures, yearLabel) => {
         const countryLabels = Object.keys(countriesCount);  
         const countryData = Object.values(countriesCount);  
 
-        // Set color based on year  
-        const color = yearLabel.includes('2020') ? '#2c81c0' : '#e26363'; // Blue or Red  
+        // Determine color based on year
+        const color = yearLabel.includes('2020') ? '#2c81c0' : '#e26363'; // Blue or Red
         showPopup(providerName, yearLabel, totalStudents, countryLabels, countryData, color);  
     });  
 
-    // Mouse hover effects  
+    // Keep mouse hover effect unchanged  
     map.on('mouseenter', 'schools-points-layer', (e) => {  
         map.getCanvas().style.cursor = 'pointer';  
         displayTooltip(e.point, "Click to view student composition");  
@@ -939,7 +940,7 @@ const setupMapInteractions = (map, filteredFeatures, yearLabel) => {
     });  
 };  
 
-// Show popup content   
+// Show popup content
 const showPopup = (providerName, yearLabel, totalStudents, countryLabels, countryData, color) => {  
     const popupHTML = `  
         <div class="info-header">
@@ -1081,7 +1082,7 @@ const updateChart = (countryLabels, countryData, color) => {
     });  
 };  
 
-// Display tooltip   
+// Show tooltip
 const displayTooltip = (point, message) => {  
     const tooltip = document.getElementById('tooltip');  
     tooltip.style.display = 'block';  
@@ -1090,13 +1091,13 @@ const displayTooltip = (point, message) => {
     tooltip.style.top = `${point.y}px`;  
 };  
 
-// Hide tooltip  
+// Hide tooltip
 const hideTooltip = () => {  
     const tooltip = document.getElementById('tooltip');  
     tooltip.style.display = 'none';  
 };  
 
-// Get student count by country  
+// Get country student count
 const getCountriesCount = (filteredFeatures) => {  
     const countriesCount = {};  
     filteredFeatures.forEach(f => {  
@@ -1120,7 +1121,7 @@ const getCountriesCount = (filteredFeatures) => {
     return countriesCount;  
 };   
         
-        // Handle search functionality  
+        // Process search functionality
         document.getElementById('searchBar').addEventListener('input', function() {  
             const filter = this.value.trim().toLowerCase();  
             const features = map2020.getSource('schools-points')._data.features;  
