@@ -1,0 +1,1879 @@
+<!DOCTYPE html>  
+<html lang="en">  
+<head>  
+    <meta charset="utf-8">  
+    <title>2020/2021 Schools Data Visualization</title>  
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">  
+    <!-- Mapbox GL JS -->  
+    <script src="https://api.tiles.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"></script>  
+    <link href="https://api.tiles.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet">  
+    <!-- Turf.js -->  
+    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>  
+    <!-- Chart.js -->  
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>  
+    <!-- Mapbox-gl-compare -->  
+    <link href="./mapbox-gl-compare-main/dist/mapbox-gl-compare.css" rel="stylesheet">  
+    <script src="./mapbox-gl-compare-main/dist/mapbox-gl-compare.js"></script>  
+    <style>  
+body {   
+    margin: 0;   
+    padding: 0;
+    overflow: hidden
+}  
+
+#comparison-container {   
+    position: relative;   
+    height: 100vh;   
+    width: 100%;   
+}  
+
+.map {   
+    position: absolute;   
+    top: 0;   
+    bottom: 0;   
+    width: 100%;   
+}  
+
+.info-box {  
+    position: fixed;  
+    bottom: 20px;  
+    right: 20px;  
+    background: rgba(255, 255, 255, 0.75);
+    border-radius: 8px;  
+    padding: 10px;  
+    width: 420px;  
+    max-height: 280px;  
+    overflow: hidden;   
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);  
+    border: 1px solid rgba(0, 0, 0, 0.1);   
+    color: #333;  
+    font-size: 12px;   
+    z-index: 1000;  
+    display: none;  
+    backdrop-filter: blur(5px);
+    transition: all 0.3s ease;
+}   
+
+#infoContent {  
+    height: calc(100% - 10px);  
+    overflow-y: auto;
+}  
+
+.info-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.info-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: #246ab4;
+}
+
+.info-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.brexit-toggle {
+    padding: 6px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.2s ease;
+}
+
+.brexit-toggle.active {
+    background: #246ab4;
+    color: white;
+    border-color: #246ab4;
+}
+
+.close-btn {  
+    background: none;  
+    border: none;  
+    cursor: pointer;  
+    font-size: 18px;
+    color: #666;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    margin-left: 5px;
+}  
+
+.close-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #333;
+}  
+
+.tooltip {  
+    position: fixed;  
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 4px;  
+    padding: 6px 10px;  
+    font-size: 11px;
+    display: none;  
+    z-index: 1001;  
+    pointer-events: none;  
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(5px);
+}  
+
+.suggestions {  
+    position: fixed;  
+    top: 50px;  
+    right: 20px;  
+    background: rgba(255, 255, 255, 0.9); /* 统一透明度 */  
+    border: 0.1px solid rgba(0, 0, 0, 0.1); /* 较细的边框 */  
+    z-index: 1001;  
+    max-height: 200px;  
+    overflow-y: auto; /* 允许内容区域滚动 */  
+    width: 300px;  
+    display: none;  
+    font-size: 10px; /* 确保搜索建议的字体大小一致 */  
+}  
+
+.suggestion-item {  
+    padding: 10px;  
+    cursor: pointer;  
+    border-bottom: 1px solid #ccc;  
+}  
+
+.suggestion-item:hover {  
+    background: #f0f0f0;   
+}  
+
+        
+#sidebar {  
+    position: absolute;  
+    top: 0;  
+    left: 0;  
+    width: 280px;
+    height: 100%;  
+    background-color: rgba(255, 255, 255, 0.45);
+    padding: 4px 20px 0;
+    box-shadow: 1px 0 8px rgba(0, 0, 0, 0.08);
+    overflow-y: auto;
+    overflow-x: hidden;
+    border-right: 1px solid rgba(0, 0, 0, 0.05);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}  
+
+#progress-container {  
+    display: flex;  
+    justify-content: center;
+    align-items: center;
+    margin: 0;
+    padding: 6px 0;
+    position: sticky;
+    top: 4px;
+    z-index: 2000;
+    background: none;
+}  
+
+.dot {  
+    width: 8px;   
+    height: 8px;   
+    border-radius: 50%;   
+    background-color: rgba(0, 0, 0, 0.1);
+    margin: 0 4px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 1px solid transparent;
+}  
+
+.dot:hover {
+    background-color: rgba(82, 167, 255, 0.5);
+    transform: scale(1.1);
+}  
+
+.dot.active {  
+    background-color: #52a7ff;
+    border-color: #ffffff;
+    box-shadow: 0 0 0 1px rgba(82, 167, 255, 0.3);
+    transform: scale(1.1);
+}  
+
+#next-button {  
+    width: 100%;  
+    padding: 10px;  
+    background-color: #246ab4;
+    color: white; 
+    border: none;  
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-size: 0.85em;
+    transition: all 0.3s ease;
+    margin-top: 15px;
+    box-shadow: 0 2px 4px rgba(36, 106, 180, 0.15);
+    font-family: 'Roobert', 'SF Pro Display', -apple-system, sans-serif;
+}  
+
+#next-button:hover {  
+    background-color: #3480d1;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(36, 106, 180, 0.2);
+}  
+
+.sidebar-content {
+    opacity: 0;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    display: none;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.55);
+    border-radius: 6px;
+    margin: 8px 0;
+    position: relative;
+    z-index: 1;
+    transform: translateY(10px);
+}
+
+.sidebar-content.active {
+    opacity: 1;
+    display: block;
+    transform: translateY(0);
+}
+
+.sidebar-title {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-size: 1.1em;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: #000000;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.05);
+    position: relative;
+    padding-bottom: 10px;
+}
+
+.sidebar-title::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 60px;
+    height: 3px;
+    background: linear-gradient(90deg, #246ab4, #52a7ff);
+    border-radius: 2px;
+}
+
+.sidebar-text {
+    font-size: 0.75em;
+    color: #333;
+    line-height: 1.5;
+    margin-bottom: 12px;
+    letter-spacing: 0.01em;
+    font-weight: 400;
+}
+
+.sidebar-text strong {
+    color: #246ab4;
+    font-weight: 700;
+}
+
+.sidebar-image {
+    width: 100%;
+    height: auto;
+    margin: 15px 0;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: transform 0.3s ease;
+}
+
+.sidebar-image:hover {
+    transform: scale(1.02);
+}
+
+.italic {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-style: italic;
+    color: #555;
+    font-size: 0.8em;
+    border-left: 2px solid #52a7ff;
+    padding: 8px 12px;
+    margin: 12px 0;
+    background: rgba(82, 167, 255, 0.05);
+    border-radius: 0 4px 4px 0;
+}
+
+.image-attribution {
+    font-size: 0.75em;
+    color: #666;
+    text-align: right;
+    margin-top: 5px;
+    font-style: italic;
+}
+
+.image-attribution a {
+    color: #246ab4;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.image-attribution a:hover {
+    color: #3480d1;
+    text-decoration: underline;
+}
+
+.chart-container {
+    position: relative;
+    width: 100%;
+    height: 420px;
+    margin: 10px 0;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.chart-container.expanded {
+    position: fixed;
+    top: 0;
+    left: 280px;
+    width: calc(100vw - 280px);
+    height: 100vh;
+    z-index: 2000;
+    padding: 20px;
+    background: white;
+    border-radius: 0;
+    transform: none;
+}
+
+.chart-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1999;
+}
+
+.chart-close {
+    display: none;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.1);
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    color: #666;
+    transition: all 0.2s ease;
+}
+
+.chart-close:hover {
+    background: rgba(0, 0, 0, 0.2);
+    color: #333;
+}
+
+.chart-container.expanded .chart-close {
+    display: block;
+}
+
+.sidebar-tip {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-style: italic;
+    color: #555;
+    font-size: 0.8em;
+    padding: 8px 12px 8px 15px;
+    margin: 8px 0;
+    background: rgba(82, 167, 255, 0.05);
+    border-radius: 4px;
+    border-left: 3px solid #52a7ff;
+    position: relative;
+}
+
+.watermark {
+    font-family: 'Open Sans', 'Arial Unicode MS Bold', sans-serif;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.8);
+    position: fixed;
+    bottom: 15px;
+    left: 100px;
+    padding: 0;
+    font-style: normal;
+    font-weight: 500;
+    letter-spacing: 0.15px;
+    z-index: 1000;
+    text-shadow: none;
+    background: none;
+    backdrop-filter: none;
+    border-radius: 0;
+    border: none;
+    transition: none;
+    line-height: normal;
+}
+
+.watermark:hover {
+    color: rgba(255, 255, 255, 0.95);
+    background: none;
+    border: none;
+    }  
+    </style>  
+</head>  
+<body>  
+    <div id="searchContainer">  
+        <div style="position: relative;">  
+            <input type="text" id="searchBar" placeholder="Search Schools..." />  
+            <button id="searchButton" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);">  
+                <img src="https://img.icons8.com/material-outlined/24/000000/search.png" alt="Search" />  
+            </button>  
+        </div>  
+    </div>  
+    <div class="suggestions" id="suggestions"></div>  
+    <div id="comparison-container">  
+        <div id="map2020" class="map"></div>  
+        <div id="map2021" class="map"></div>  
+    </div>  
+    <div class="info-box" id="infoBox">  
+        <div id="infoContent"></div>  
+        <canvas id="countryChart"></canvas>  
+    </div>  
+    <div class="tooltip" id="tooltip"></div>
+    
+<div id="sidebar">  
+    <div id="progress-container">  
+        <div class="dot active" id="dot-1" data-zoom="level1" onclick="navigateToView('level1')"></div>  
+        <div class="dot" id="dot-2" data-zoom="level2" onclick="navigateToView('level2')"></div>  
+        <div class="dot" id="dot-3" data-zoom="level3" onclick="navigateToView('level3')"></div>  
+    </div>  
+    <div class="sidebar-content active" id="content-1">
+        <h2 class="sidebar-title">Navigating New Horizons: The Impact of Brexit on International Student Enrollment in UK Education</h2>
+        <img src="./plots/Header_Brexits-Impact-on-UK-Universities-Comprehensive-Analysis.jpg" alt="Brexit Impact Header" class="sidebar-image">
+        <div class="image-attribution">
+            Image source: <a href="https://amberstudent.com/news/post/brexits-impact-on-students-and-uk-universities-a-comprehensive-analysis" target="_blank">Amber Student</a>
+        </div>
+        <p class="sidebar-text">
+            Embark on an engaging exploration of the <strong>profound effects</strong> Brexit has had on the dynamics of international education in the UK. This interactive map invites you to delve into the nuanced shifts in student demographics from both <strong>EU</strong> and <strong>non-EU</strong> countries before and after the referendum.
+        </p>
+        <div class="sidebar-tip">Click 'Next' to explore the impact of Brexit on UK educational trends!!</div>
+        <div class="sidebar-tip">Tap the map to see the composition of international students in detail!!</div>
+    </div>
+    <div class="sidebar-content" id="content-2">
+        <h2 class="sidebar-title">International Student Trends Post-Brexit (2006-2023)</h2>
+        <p class="sidebar-text">
+            From 2006 to 2020, EU student numbers held steady at <strong style="color: #246ab4">65,000</strong> ➜ post-Brexit policies triggered a sharp decline to <strong style="color: #246ab4">31,000</strong>, while enrollment from <strong style="color: #246ab4">China</strong> and <strong style="color: #246ab4">India</strong> showed sustained growth. Explore these shifting patterns by selecting different regions in the chart below.
+        </p>
+        <div class="chart-container" id="trendChart">
+            <canvas id="lineChart"></canvas>
+        </div>
+    </div>
+    <div class="sidebar-content" id="content-3">
+        <h2 class="sidebar-title">Regional and European Student Distribution</h2>
+        <p class="sidebar-text">
+            As we zoom in closer, a clear shift emerges in the global student landscape. Asian countries now contribute <strong style="color: #246ab4">60%</strong> of international students, with notable increases from <strong style="color: #246ab4">South</strong> and <strong style="color: #246ab4">East Asia</strong>. Switch between the regional view and European countries to discover how different areas have adapted to the post-Brexit environment.
+        </p>
+        <div style="margin: 15px 0;">
+            <select id="regionSelector" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em;">
+                <option value="regions">Regions Comparison</option>
+                <option value="european_countries">European Countries</option>
+            </select>
+        </div>
+        <div class="chart-container" style="height: 300px; margin-bottom: 10px;">
+            <canvas id="cityComparisonChart"></canvas>
+        </div>
+        <div class="chart-legend" style="font-size: 0.75em; color: #666; text-align: center; margin-bottom: 5px;">
+            * Comparing academic years 2020/2021 and 2021/2022
+        </div>
+        <div class="sidebar-tip" style="font-size: 0.7em; margin-top: 10px;">
+            Use the search function or click on locations to view detailed trends for each institution
+        </div>
+    </div>  
+    <button id="next-button">Next</button>  
+</div>  
+<div class="watermark">Created by @Yixing</div>
+    
+    <script>  
+        // Mapbox Token  
+        mapboxgl.accessToken = 'pk.eyJ1IjoieWl4aW5nLWxpIiwiYSI6ImNtN3FtNWh6YjA0ancybnM4aGxjZnlheTEifQ.sKwaoIMQR65VQmYDbnu2MQ';  
+        const map2020 = new mapboxgl.Map({  
+            container: 'map2020',  
+            style: 'mapbox://styles/yixing-li/cm7qq3q0q00le01sb6zwp03g9',  
+            center: [-1, 40],  
+            zoom: 3,  
+            pitch: 0,  
+            bearing: 0  
+        });  
+        const map2021 = new mapboxgl.Map({  
+            container: 'map2021',  
+            style: 'mapbox://styles/yixing-li/cm7qq3q0q00le01sb6zwp03g9',  
+            center: [-1, 40],  
+            zoom: 3,  
+            pitch: 0,  
+            bearing: 0  
+        });  
+        new mapboxgl.Compare(map2020, map2021, '#comparison-container', {  
+            orientation: 'vertical'  
+        });  
+        
+const processMapData = (map, geojsonUrl, heatmapColor, pointColor, yearLabel) => {  
+    map.on('load', () => {  
+        // Load school data  
+        fetch(geojsonUrl)  
+            .then(response => response.json())  
+            .then(data => {  
+                const filteredFeatures = data.features.filter(f => f.geometry?.type === "Point" && f.properties?.students > 0);  
+                const filteredData = { type: 'FeatureCollection', features: filteredFeatures };  
+
+                // Load country centroid data  
+                loadCountryCentroids(map, filteredFeatures);  
+
+                // Add heatmap and school point layers  
+                addHeatmapLayer(map, filteredData, heatmapColor);  
+                addSchoolsPointLayer(map, filteredData, pointColor);  
+
+                // Ensure events are bound after layers are loaded  
+                setupMapInteractions(map, filteredFeatures, yearLabel);  
+            })  
+            .catch(error => console.error("Error loading school data:", error));  
+    });  
+};  
+
+
+        
+const processBrexitData = (map, geojsonUrlBefore, geojsonUrlAfter, heatmapColor, pointColor, yearLabel) => {  
+    map.on('load', () => {  
+        // Load pre-Brexit school data  
+        fetch(geojsonUrlBefore)  
+            .then(response => response.json())  
+            .then(dataBefore => {  
+                const filteredFeaturesBefore = dataBefore.features.filter(f => f.geometry?.type === "Point" && f.properties?.students > 0);  
+                
+                // Load post-Brexit school data  
+                fetch(geojsonUrlAfter)  
+                    .then(response => response.json())  
+                    .then(dataAfter => {  
+                        const filteredFeaturesAfter = dataAfter.features.filter(f => f.geometry?.type === "Point" && f.properties?.students > 0);  
+                        
+                        // Merge both datasets  
+                        const allFeatures = [...filteredFeaturesBefore, ...filteredFeaturesAfter];  
+
+                        // Load country centroid data  
+                        loadCountryCentroids(map, allFeatures, dataBefore, dataAfter);  
+
+                        // Add heatmap and school point layers  
+                        addHeatmapLayer(map, allFeatures, heatmapColor);  
+                        addSchoolsPointLayer(map, allFeatures, pointColor);  
+                    })  
+                    .catch(error => console.error("Error loading post-Brexit school data:", error));  
+            })  
+            .catch(error => console.error("Error loading pre-Brexit school data:", error));  
+    });  
+};  
+
+const formatCountryName = (name) => {  
+    return name  
+        .replace(/_/g, ' ') // Replace underscores with spaces  
+        .split(' ') // Split into words  
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())  
+        .join(' ');  
+};  
+
+// Add this function before loadCountryCentroids
+const formatMapCountryName = (name) => {
+    return name
+        .replace(/\([^)]*\)/g, '')  // Remove parentheses and their content
+        .trim()
+        .replace(/_/g, ' ')  // Replace underscores with spaces
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+};
+
+// Modify the loadCountryCentroids function
+const loadCountryCentroids = (map, allFeatures, dataBefore, dataAfter) => {  
+    fetch('./countries_centroids.geojson')  
+        .then(response => response.json())  
+        .then(data => {  
+            // Format country names in the data
+            data.features.forEach(feature => {
+                feature.properties.country = formatMapCountryName(feature.properties.country);
+            });
+
+            const countryCentroids = {};  
+            data.features.forEach(feature => {  
+                const country = feature.properties.country;  
+                countryCentroids[country] = feature;  
+            });  
+
+            // Draw flow lines on the map  
+            drawFlowLines(map, countryCentroids, allFeatures);  
+
+            // Add countries centroids source to the map  
+            map.addSource('countries-centroids', {  
+                type: 'geojson',  
+                data: data  
+            });  
+
+            // Add country centroid points layer to the map  
+            map.addLayer({  
+                id: 'country-centroids-layer',  
+                type: 'circle',  
+                source: 'countries-centroids',  
+                paint: {  
+                    'circle-radius': 3,  
+                    'circle-color': '#000000',  
+                    'circle-opacity': 0.6  
+                }  
+            });  
+
+            // Add country name labels layer to the map  
+            map.addLayer({  
+                id: 'country-labels-layer',  
+                type: 'symbol',  
+                source: 'countries-centroids',  
+                layout: {  
+                    'text-field': [
+                        'format',
+                        ['to-string', ['get', 'country']],
+                        {
+                            'text-transform': 'lowercase',
+                            'font-scale': 1
+                        }
+                    ],
+                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],  
+                    'text-size': 12,  
+                    'text-allow-overlap': true  
+                },  
+                paint: {  
+                    'text-color': '#FFFFFF'  
+                }  
+            });  
+        })  
+        .catch(error => console.error("Loading countries_centroids data failed:", error));  
+};  
+
+const dots = document.querySelectorAll('.dot');  
+let currentIndex = 0; // Current active index  
+const views = {
+    level1: {
+        center: [-1, 40],
+        zoom: 3.5
+    },
+    level2: {
+        center: [-2.2, 53],
+        zoom: 4.5
+    },
+    level3: {
+        center: [-2.2, 53],
+        zoom: 8
+    }
+};  
+
+// Function to navigate to a view based on the dot clicked  
+function navigateToView(view) {  
+    if (view === 'level1') {  
+        currentIndex = 0;  
+    } else if (view === 'level2') {  
+        currentIndex = 1;  
+    } else if (view === 'level3') {
+        currentIndex = 2;
+    }  
+    updateDots();  
+    handleMapZoom();
+    updateSidebarContent(currentIndex);
+}  
+
+// Function to update the active state of the dots  
+function updateDots() {  
+    dots.forEach((dot, index) => {  
+        dot.classList.toggle('active', index === currentIndex); // Toggle activation based on index  
+    });  
+}  
+
+// Function to adjust the map view based on currentIndex  
+function handleMapZoom() {  
+    const viewLevels = ['level1', 'level2', 'level3'];
+    const currentView = views[viewLevels[currentIndex]];
+    
+        map2020.flyTo({  
+        center: currentView.center,  
+        zoom: currentView.zoom,  
+            speed: 1,  
+            curve: 1,  
+            easing(t) { return t; }  
+        });  
+    
+    map2021.flyTo({  
+        center: currentView.center,  
+        zoom: currentView.zoom,  
+            speed: 1,  
+            curve: 1,  
+            easing(t) { return t; }  
+        });  
+}  
+
+// Handle the "Next" button click event  
+document.getElementById('next-button').addEventListener('click', function() {  
+    currentIndex = (currentIndex + 1) % 3;
+    updateDots();
+    handleMapZoom();
+    updateSidebarContent(currentIndex);
+});  
+
+// Adding event listeners to dots for user interaction  
+dots.forEach(dot => {  
+    dot.addEventListener('click', () => {  
+        navigateToView(dot.getAttribute('data-zoom')); // Navigate based on dot data-zoom  
+    });  
+});  
+        
+    
+// 修改 drawFlowLines 函数，使其区分颜色  
+const drawFlowLines = (map, countryCentroids, allFeatures) => {  
+    const studentsFlowData = { type: 'FeatureCollection', features: [] };  
+
+    allFeatures.forEach(feature => {  
+        const props = feature.properties;  
+        const totalStudents = props.students;  
+        const country = formatMapCountryName(props.country);  
+        const centroidFeature = countryCentroids[country];  
+
+        if (centroidFeature && totalStudents > 0) {  
+            const startCoord = feature.geometry.coordinates;  
+            const endCoord = centroidFeature.geometry.coordinates;  
+
+            // Calculate midpoint for curved line effect
+            const midPoint = [  
+                (startCoord[0] + endCoord[0]) / 2,  
+                (startCoord[1] + endCoord[1]) / 2 + 0.8  
+            ];  
+
+            const flowLine = {  
+                type: 'Feature',  
+                geometry: {  
+                    type: 'LineString',  
+                    coordinates: [startCoord, midPoint, endCoord]  
+                },  
+                properties: {   
+                    weight: totalStudents,   
+                    brexitStatus: props.year  
+                }  
+            };  
+            studentsFlowData.features.push(flowLine);  
+        }  
+    });  
+
+    if (studentsFlowData.features.length > 0) {  
+        map.addSource('flow-lines', {  
+            type: 'geojson',  
+            data: studentsFlowData  
+        });  
+
+        map.addLayer({  
+            id: 'flow-lines-layer',  
+            type: 'line',  
+            source: 'flow-lines',  
+            paint: {  
+                'line-width': [  
+                    'interpolate',  
+                    ['linear'],  
+                    ['get', 'weight'],  
+                    0, 0.1,  
+                    100, 0.3,  
+                    500, 0.6,  
+                    1000, 1.2,  
+                    5000, 2,  
+                    10000, 3  
+                ],  
+                'line-opacity': [  
+                    'interpolate',  
+                    ['linear'],  
+                    ['get', 'weight'],  
+                    0, 0.1,  
+                    100, 0.3,  
+                    500, 0.5,  
+                    1000, 0.7  
+                ],  
+                'line-color': [  
+                    'case',  
+                    ['==', ['get', 'brexitStatus'], '2020/2021'], 'rgba(210, 210, 255, 0.45)',  // Pre-Brexit light blue
+                    ['==', ['get', 'brexitStatus'], '2021/2022'], 'rgba(246, 200, 200, 0.45)',  // Post-Brexit light red
+                    'rgba(255, 255, 255, 0.5)'  // Default color
+                ]  
+            }  
+        });  
+    }  
+};  
+// 继续定义其余功能...  
+
+// 添加热力图图层  
+const addHeatmapLayer = (map, filteredData, heatmapColor) => {  
+    map.addSource('schools-heatmap', {  
+        type: 'geojson',  
+        data: filteredData  
+    });  
+    map.addLayer({  
+        id: 'schools-heatmap-layer',  
+        type: 'heatmap',  
+        source: 'schools-heatmap',  
+        paint: {  
+            'heatmap-weight': [  
+                'interpolate',  
+                ['linear'],  
+                ['get', 'students'],  
+                0, 0,  
+                100, 0.05,  
+                500, 0.1,  
+                1000, 0.2,  
+                5000, 0.4,  
+                8000, 0.5,  
+                10000, 0.6,  
+                11000, 0.7,  
+                13000, 0.85,  
+                15000, 1  
+            ],  
+            'heatmap-color': [  
+                'interpolate',  
+                ['linear'],  
+                ['heatmap-density'],  
+                0, 'rgba(255,255,255,0)',  
+                0.2, heatmapColor[0],  
+                0.4, heatmapColor[1],  
+                0.6, heatmapColor[2],  
+                0.8, heatmapColor[3]  
+            ],  
+            'heatmap-radius': [  
+                'interpolate',  
+                ['linear'],  
+                ['zoom'],  
+                0, 20,  
+                9, 30  
+            ],  
+            'heatmap-intensity': [  
+                'interpolate',  
+                ['linear'],  
+                ['zoom'],  
+                0, 0.6,  
+                9, 1.2  
+            ]  
+        }  
+    });  
+};  
+
+// 添加学校点图层  
+const addSchoolsPointLayer = (map, filteredData, pointColor) => {  
+    map.addSource('schools-points', { type: 'geojson', data: filteredData });  
+    map.addLayer({  
+        id: 'schools-points-layer',  
+        type: 'circle',  
+        source: 'schools-points',  
+        paint: {  
+            'circle-radius': [  
+                'interpolate',  
+                ['linear'],  
+                ['get', 'students'],  
+                0, 0.2,  
+                100, 0.5,  
+                500, 1,  
+                800, 1.3,  
+                1000, 1.7,  
+                3000, 3,  
+                5000, 4,  
+                7000, 6,  
+                8000, 7,  
+                10000, 8,  
+                15000, 10,  
+                17000, 13  
+            ],  
+            'circle-color': pointColor,  
+            'circle-opacity': 0.9,  
+            'circle-stroke-width': 0.5,  
+            'circle-stroke-color': '#FFFFFF'  
+        }  
+    });  
+};  
+
+// 适应地图边界   
+const fitMapToBounds = (map, filteredFeatures) => {  
+    const bounds = new mapboxgl.LngLatBounds();  
+    filteredFeatures.forEach(f => {  
+        bounds.extend(f.geometry.coordinates);  
+    });  
+    map.fitBounds(bounds, { padding: 50 });  
+};  
+
+// 设置点击和鼠标事件   
+const setupMapInteractions = (map, filteredFeatures, yearLabel) => {  
+    map.on('click', 'schools-points-layer', (e) => {  
+        const feature = e.features[0];  
+        if (!feature) return;  
+
+        const props = feature.properties;  
+        const totalStudents = props.students;  
+        const providerName = props.he_provider || "Unnamed School";  
+        const countriesCount = getCountriesCount(filteredFeatures);  
+        const countryLabels = Object.keys(countriesCount);  
+        const countryData = Object.values(countriesCount);  
+
+        // Set color based on year  
+        const color = yearLabel.includes('2020') ? '#2c81c0' : '#e26363'; // Blue or Red  
+        showPopup(providerName, yearLabel, totalStudents, countryLabels, countryData, color);  
+    });  
+
+    // Mouse hover effects  
+    map.on('mouseenter', 'schools-points-layer', (e) => {  
+        map.getCanvas().style.cursor = 'pointer';  
+        displayTooltip(e.point, "Click to view student composition");  
+    });  
+
+    map.on('mouseleave', 'schools-points-layer', () => {  
+        map.getCanvas().style.cursor = '';  
+        hideTooltip();  
+    });  
+};  
+
+// Show popup content   
+const showPopup = (providerName, yearLabel, totalStudents, countryLabels, countryData, color) => {  
+    const popupHTML = `  
+        <div class="info-header">
+            <div class="info-title">${providerName}</div>
+            <div class="info-controls">
+                <button class="brexit-toggle active" data-year="2020">2020/2021</button>
+                <button class="brexit-toggle" data-year="2021">2021/2022</button>
+                <button class="close-btn" onclick="document.getElementById('infoBox').style.display='none'">&times;</button>
+            </div>
+        </div>
+        <div style="font-size: 11px; margin-bottom: 2px;">
+            <div style="margin-bottom: 2px;">Selected Year: <strong class="year-label">${yearLabel}</strong></div>
+            <div>Total International Students: <strong class="total-students">${totalStudents}</strong></div>
+        </div>
+        <div style="position: relative; height: 200px;">
+            <canvas id="countryChart"></canvas>
+        </div>  
+    `;  
+
+    document.getElementById('infoContent').innerHTML = popupHTML;  
+    document.getElementById('infoBox').style.display = 'block';  
+
+    // Add event listeners for Brexit toggle buttons
+    const toggleButtons = document.querySelectorAll('.brexit-toggle');
+    toggleButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            toggleButtons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            
+            const year = button.dataset.year;
+            if (year === '2020') {
+                updateChart(countryLabels, countryData, '#2c81c0');
+                document.querySelector('.year-label').textContent = '2020/2021 (Pre-Brexit)';
+                const feature = map2020.querySourceFeatures('schools-points', {
+                    filter: ['==', ['get', 'he_provider'], providerName]
+                })[0];
+                if (feature) {
+                    document.querySelector('.total-students').textContent = feature.properties.students;
+                }
+            } else {
+                const feature = map2021.querySourceFeatures('schools-points', {
+                    filter: ['==', ['get', 'he_provider'], providerName]
+                })[0];
+                if (feature) {
+                    const data2021 = getCountriesCount(map2021.getSource('schools-points')._data.features);
+                    updateChart(Object.keys(data2021), Object.values(data2021), '#e26363');
+                    document.querySelector('.year-label').textContent = '2021/2022 (Post-Brexit)';
+                    document.querySelector('.total-students').textContent = feature.properties.students;
+                }
+            }
+        });
+    });
+
+    setTimeout(() => {
+    updateChart(countryLabels, countryData, color);  
+    }, 50);
+};  
+
+const updateChart = (countryLabels, countryData, color) => {  
+    const ctx = document.getElementById('countryChart');  
+    if (Chart.getChart(ctx)) {  
+        Chart.getChart(ctx).destroy();  
+    }  
+
+    new Chart(ctx, {  
+        type: 'bar',  
+        data: {  
+            labels: countryLabels,  
+            datasets: [{  
+                label: 'Students',  
+                data: countryData,  
+                backgroundColor: color,
+                borderColor: color,
+                borderWidth: 1,
+                barPercentage: 0.8,
+                categoryPercentage: 0.8
+            }]  
+        },  
+        options: {  
+            responsive: true,  
+            maintainAspectRatio: false,  
+            layout: {
+                padding: {
+                    bottom: 5,
+                    right: 8,
+                    left: 5,
+                    top: 5
+                }
+            },
+            scales: {  
+                x: {  
+                    grid: {
+                        display: false
+                    },
+                    ticks: {  
+                        font: {
+                            size: 8
+                        },
+                        maxRotation: 45,
+                        minRotation: 45,
+                        padding: 2
+                    }  
+                },  
+                y: {  
+                    beginAtZero: true,  
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    },
+                    ticks: {  
+                        color: '#333',  
+                        font: { size: 9 },
+                        padding: 2,
+                        callback: function(value) {
+                            return value.toLocaleString();
+                        }
+                    }  
+                }  
+            },  
+            plugins: {  
+                legend: { display: false },  
+                tooltip: {
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    titleColor: '#333',
+                    titleFont: { size: 12, weight: 'bold' },
+                    bodyColor: '#666',
+                    bodyFont: { size: 11 },
+                    borderColor: 'rgba(0, 0, 0, 0.1)',
+                    borderWidth: 1,
+                    padding: 8,
+                    displayColors: false,
+                    callbacks: {
+                        label: function(context) {
+                            return `Students: ${context.raw.toLocaleString()}`;
+                        }
+                    }
+                }
+            }  
+        }  
+    });  
+};  
+
+// Display tooltip   
+const displayTooltip = (point, message) => {  
+    const tooltip = document.getElementById('tooltip');  
+    tooltip.style.display = 'block';  
+    tooltip.innerHTML = message;  
+    tooltip.style.left = `${point.x}px`;  
+    tooltip.style.top = `${point.y}px`;  
+};  
+
+// Hide tooltip  
+const hideTooltip = () => {  
+    const tooltip = document.getElementById('tooltip');  
+    tooltip.style.display = 'none';  
+};  
+
+// Get student count by country  
+const getCountriesCount = (filteredFeatures) => {  
+    const countriesCount = {};  
+    filteredFeatures.forEach(f => {  
+        let country = f.properties.country;  
+        const students = f.properties.students;  
+        if (country && 
+            country.trim() !== "" && 
+            !country.toLowerCase().includes("total") &&
+            !country.toLowerCase().includes("specified")) {  
+            // Format country name: remove parentheses and content inside, replace underscores with spaces, capitalize first letter of each word
+            country = country
+                .replace(/\([^)]*\)/g, '')  // Remove parentheses and their content
+                .trim()
+                .replace(/_/g, ' ')  // Replace underscores with spaces
+                .split(' ')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                .join(' ');
+            countriesCount[country] = (countriesCount[country] || 0) + students;  
+        }  
+    });  
+    return countriesCount;  
+};   
+        
+        // Handle search functionality  
+        document.getElementById('searchBar').addEventListener('input', function() {  
+            const filter = this.value.trim().toLowerCase();  
+            const features = map2020.getSource('schools-points')._data.features;  
+            const matchedFeatures = features.filter(feature => {  
+                const schoolName = feature.properties.he_provider || "";  
+                return schoolName.toLowerCase().includes(filter);  
+            });  
+            const suggestions = document.getElementById('suggestions');  
+            suggestions.innerHTML = "";  
+            matchedFeatures.forEach(feature => {  
+                const schoolName = feature.properties.he_provider || "";  
+                const suggestionItem = document.createElement('div');  
+                suggestionItem.className = "suggestion-item";  
+                suggestionItem.innerText = schoolName;  
+                suggestionItem.onclick = () => {  
+                    showSchoolInfo(feature, map2020);  
+                };  
+                suggestions.appendChild(suggestionItem);  
+            });  
+            suggestions.style.display = matchedFeatures.length > 0 ? 'block' : 'none';  
+        });  
+
+        const showSchoolInfo = (feature, map) => {  
+            const props = feature.properties;  
+            const totalStudents = props.students;  
+            const providerName = props.he_provider || "Unnamed School";  
+            const yearLabel = "2020/2021 (Pre-Brexit)";  
+            const countriesCount = getCountriesCount(map.getSource('schools-points')._data.features);
+            const countryLabels = Object.keys(countriesCount);  
+            const countryData = Object.values(countriesCount);  
+
+            showPopup(providerName, yearLabel, totalStudents, countryLabels, countryData, '#2c81c0');
+
+            const coordinates = feature.geometry.coordinates;  
+            map.flyTo({ center: coordinates, zoom: 10 });  
+        };
+
+        // Update search container styles
+        document.getElementById('searchContainer').style.cssText = `
+            position: fixed;
+            top: 10px;
+            right: 20px;
+            z-index: 1001;
+        `;
+
+        document.getElementById('searchBar').style.cssText = `
+            width: 300px;
+            padding: 8px 35px 8px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            font-size: 13px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(5px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        `;
+
+        document.getElementById('searchButton').style.cssText = `
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            opacity: 0.6;
+            transition: opacity 0.2s ease;
+        `;
+
+        document.querySelector('.suggestions').style.cssText = `
+            position: fixed;
+            top: 50px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 6px;
+            z-index: 1001;
+            max-height: 300px;
+            overflow-y: auto;
+            width: 300px;
+            display: none;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        `;
+
+        // Add hover styles for search elements
+        document.getElementById('searchBar').addEventListener('focus', function() {
+            this.style.boxShadow = '0 2px 12px rgba(0, 0, 0, 0.15)';
+        });
+
+        document.getElementById('searchBar').addEventListener('blur', function() {
+            this.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
+        });
+
+        document.getElementById('searchButton').addEventListener('mouseenter', function() {
+            this.style.opacity = '1';
+        });
+
+        document.getElementById('searchButton').addEventListener('mouseleave', function() {
+            this.style.opacity = '0.6';
+        });
+
+        // Add styles for suggestion items
+        const style = document.createElement('style');
+        style.textContent = `
+            .suggestion-item {
+                padding: 10px 15px;
+                cursor: pointer;
+                border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+                font-size: 12px;
+                transition: all 0.2s ease;
+            }
+            
+            .suggestion-item:last-child {
+                border-bottom: none;
+            }
+            
+            .suggestion-item:hover {
+                background: rgba(36, 106, 180, 0.1);
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Load data files  
+        processMapData(map2020, './geojson_outputs_schools_2020_2021.geojson', [  
+            'rgba(200,200,255,0.5)',  
+            'rgba(150, 173, 255, 0.72)',  
+            'rgba(111, 133, 231, 0.85)',  
+            'rgb(87, 95, 221)'  
+        ], '#FFFFFF', '2020/2021 (Pre-Brexit)');  
+        processMapData(map2021, './geojson_outputs_schools_2021_2022.geojson', [  
+            'rgba(255,200,200,0.5)',  
+            'rgba(255,150,150,0.7)',  
+            'rgba(255, 114, 114, 0.9)',  
+            'rgb(247, 77, 77)'  
+        ], '#FFFFFF', '2021/2022 (Post-Brexit)');  
+
+        // Function to update sidebar content
+        function updateSidebarContent(index) {
+            const contents = document.querySelectorAll('.sidebar-content');
+            contents.forEach((content, i) => {
+                if (i === index) {
+                    content.style.display = 'block';
+                    requestAnimationFrame(() => {
+                        content.classList.add('active');
+                    });
+                } else {
+                    content.classList.remove('active');
+            setTimeout(() => {  
+                        content.style.display = 'none';
+                    }, 500);
+                }
+            });
+        }
+
+        // Add this after your existing script code
+        const createTrendChart = () => {
+            const data = {
+                labels: ['2006/2007', '2007/2008', '2008/2009', '2009/2010', '2010/2011', '2011/2012', '2012/2013', '2013/2014', '2014/2015', '2015/2016', '2016/2017', '2017/2018', '2018/2019', '2019/2020', '2020/2021', '2021/2022', '2022/2023'],
+                datasets: [
+                    {
+                        label: 'China',
+                        data: [25135, 24670, 28905, 36950, 44805, 53525, 56535, 58810, 58975, 62290, 66705, 76930, 86965, 104165, 99160, 99970, 102795],
+                        borderColor: 'rgba(128, 130, 133, 0.7)',
+                        backgroundColor: 'rgba(128, 130, 133, 0.7)',
+                        borderWidth: 1.5,
+                        pointRadius: 1,
+                        pointHoverRadius: 3,
+                        tension: 0.4,
+                        hidden: false
+                    },
+                    {
+                        label: 'India',
+                        data: [14095, 16190, 23040, 23125, 23970, 16335, 12280, 11270, 10160, 9165, 9935, 13085, 18360, 40865, 50635, 85015, 126580],
+                        borderColor: 'rgba(91, 155, 213, 0.7)',
+                        backgroundColor: 'rgba(91, 155, 213, 0.7)',
+                        borderWidth: 1.5,
+                        pointRadius: 1,
+                        pointHoverRadius: 3,
+                        tension: 0.4,
+                        hidden: false
+                    },
+                    {
+                        label: 'Total EU',
+                        data: [55410, 57690, 60160, 64390, 65470, 64765, 56195, 57200, 58905, 60220, 64410, 64120, 65380, 64150, 66675, 31390, 28905],
+                        borderColor: '#E41A1C',
+                        backgroundColor: '#E41A1C',
+                        borderWidth: 2,
+                        pointRadius: 2,
+                        pointHoverRadius: 4,
+                        tension: 0.4,
+                        hidden: false,
+                        order: -1
+                    },
+                    {
+                        label: 'Other Asia',
+                        data: [34405, 34260, 36915, 41095, 43525, 43275, 43130, 45605, 42490, 40790, 39590, 39055, 39825, 43235, 42100, 65535, 83470],
+                        borderColor: 'rgba(112, 173, 71, 0.5)',
+                        backgroundColor: 'rgba(112, 173, 71, 0.5)',
+                        borderWidth: 1,
+                        pointRadius: 1,
+                        pointHoverRadius: 3,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Nigeria',
+                        data: [5840, 6875, 8740, 10125, 10140, 10010, 9635, 10265, 9530, 7675, 5570, 4905, 5585, 7420, 13830, 32270, 53790],
+                        borderColor: 'rgba(237, 125, 49, 0.5)',
+                        backgroundColor: 'rgba(237, 125, 49, 0.5)',
+                        borderWidth: 1,
+                        pointRadius: 1,
+                        pointHoverRadius: 3,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Other Africa',
+                        data: [10400, 10255, 10450, 10185, 9350, 8145, 8180, 8760, 8485, 8765, 8705, 8580, 9255, 10075, 10515, 12195, 13740],
+                        borderColor: 'rgba(165, 165, 165, 0.5)',
+                        backgroundColor: 'rgba(165, 165, 165, 0.5)',
+                        borderWidth: 1,
+                        pointRadius: 1,
+                        pointHoverRadius: 3,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'North America',
+                        data: [13990, 13260, 14065, 14435, 15000, 15500, 15310, 15635, 15980, 16610, 17170, 18205, 18690, 17940, 15145, 20005, 18205],
+                        borderColor: 'rgba(68, 114, 196, 0.5)',
+                        backgroundColor: 'rgba(68, 114, 196, 0.5)',
+                        borderWidth: 1,
+                        pointRadius: 1,
+                        pointHoverRadius: 3,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Middle East',
+                        data: [7575, 8290, 10700, 13305, 14220, 12925, 12500, 13860, 14390, 14065, 13660, 14285, 15220, 15450, 16265, 16885, 17520],
+                        borderColor: 'rgba(255, 192, 0, 0.5)',
+                        backgroundColor: 'rgba(255, 192, 0, 0.5)',
+                        borderWidth: 1,
+                        pointRadius: 1,
+                        pointHoverRadius: 3,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Other Europe',
+                        data: [6595, 6360, 7440, 8400, 9040, 9565, 9975, 10080, 10270, 9525, 9105, 9620, 9335, 9195, 8740, 9410, 9895],
+                        borderColor: 'rgba(112, 48, 160, 0.5)',
+                        backgroundColor: 'rgba(112, 48, 160, 0.5)',
+                        borderWidth: 1,
+                        pointRadius: 1,
+                        pointHoverRadius: 3,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'South America',
+                        data: [2220, 2250, 2065, 2185, 2495, 2425, 2755, 3575, 3895, 3460, 3090, 3325, 3160, 3060, 2285, 2935, 2750],
+                        borderColor: 'rgba(192, 0, 0, 0.5)',
+                        backgroundColor: 'rgba(192, 0, 0, 0.5)',
+                        borderWidth: 1,
+                        pointRadius: 1,
+                        pointHoverRadius: 3,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Australasia',
+                        data: [1255, 1260, 1210, 1580, 1240, 1325, 1355, 1390, 1425, 1465, 1495, 1500, 1570, 1430, 1160, 1310, 1520],
+                        borderColor: 'rgba(0, 176, 80, 0.5)',
+                        backgroundColor: 'rgba(0, 176, 80, 0.5)',
+                        borderWidth: 1,
+                        pointRadius: 1,
+                        pointHoverRadius: 3,
+                        tension: 0.4
+                    }
+                ]
+            };
+
+            const ctx = document.getElementById('lineChart').getContext('2d');
+            let chart = new Chart(ctx, {
+                type: 'line',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: {
+                        padding: {
+                            top: 15,
+                            right: 10,
+                            left: 10,
+                            bottom: 5
+                        }
+                    },
+                    interaction: {
+                        mode: 'point',
+                        intersect: true
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Click legend to show/hide',
+                            padding: {
+                                top: 0,
+                                bottom: 2
+                            },
+                            font: {
+                                size: 8,
+                                style: 'italic',
+                                weight: 'normal'
+                            },
+                            color: '#666',
+                            position: 'top'
+                        },
+                        legend: {
+                            position: 'top',
+                            align: 'center',
+                            onClick: (e, legendItem, legend) => {
+                                const index = legendItem.datasetIndex;
+                                const ci = legend.chart;
+                                const dataset = ci.data.datasets[index];
+                                dataset.hidden = !dataset.hidden;
+                                legendItem.hidden = dataset.hidden;
+                                
+                                let maxValue = 0;
+                                ci.data.datasets.forEach((dataset) => {
+                                    if (!dataset.hidden) {
+                                        maxValue = Math.max(maxValue, ...dataset.data);
+                                    }
+                                });
+                                
+                                ci.options.scales.y.max = Math.ceil(maxValue / 10000) * 10000;
+                                ci.update();
+                            },
+                            labels: {
+                                boxWidth: 12,
+                                padding: 4,
+                                font: {
+                                    size: 9
+                                },
+                                usePointStyle: false
+                            },
+                            maxHeight: 65,
+                            maxWidth: 1000,
+                            itemWidth: 85
+                        },
+                        subtitle: {
+                            display: true,
+                            text: 'Source: HESA',
+                            padding: {
+                                top: 2,
+                                bottom: 0
+                            },
+                            font: {
+                                size: 8,
+                                style: 'italic'
+                            },
+                            color: '#666',
+                            position: 'bottom'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Number of Students',
+                                font: {
+                                    size: 10
+                                },
+                                padding: {
+                                    top: 0,
+                                    bottom: 0
+                                }
+                            },
+                            ticks: {
+                                font: {
+                                    size: 10
+                                },
+                                callback: function(value) {
+                                    return value.toLocaleString();
+                                }
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Academic Year',
+                                font: {
+                                    size: 11
+                                }
+                            },
+                            ticks: {
+                                font: {
+                                    size: 10
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        };
+
+        // Add this to your JavaScript section:
+        function getComparisonData(compareType) {
+            if (compareType === 'regions') {
+                // Use lineChart data for regions
+                const regionData = {
+                    'asia': {
+                        '2020/2021': 99160 + 50635 + 42100, // China + India + Other Asia
+                        '2021/2022': 99970 + 85015 + 65535
+                    },
+                    'africa': {
+                        '2020/2021': 13830 + 10515, // Nigeria + Other Africa
+                        '2021/2022': 32270 + 12195
+                    },
+                    'european_union': {
+                        '2020/2021': 66675,
+                        '2021/2022': 31390
+                    },
+                    'north_america': {
+                        '2020/2021': 15145,
+                        '2021/2022': 20005
+                    },
+                    'middle_east': {
+                        '2020/2021': 16265,
+                        '2021/2022': 16885
+                    },
+                    'other_europe': {
+                        '2020/2021': 8740,
+                        '2021/2022': 9410
+                    },
+                    'south_america': {
+                        '2020/2021': 2285,
+                        '2021/2022': 2935
+                    },
+                    'australasia': {
+                        '2020/2021': 1160,
+                        '2021/2022': 1310
+                    }
+                };
+
+                const labels = Object.keys(regionData).map(key => key.replace('_', ' ').toUpperCase());
+                const values2020 = Object.values(regionData).map(year => year['2020/2021']);
+                const values2021 = Object.values(regionData).map(year => year['2021/2022']);
+
+                return {
+                    labels,
+                    values2020,
+                    values2021
+                };
+            } else {
+                // Process individual European countries
+                const data2020 = map2020.getSource('schools-points')._data.features;
+                const data2021 = map2021.getSource('schools-points')._data.features;
+                
+                const aggregateStudents = (features, country) => {
+                    return features
+                        .filter(f => f.properties.country === country)
+                        .reduce((sum, f) => sum + (f.properties.students || 0), 0);
+                };
+
+                // Define the top 10 European countries we want to show
+                const topEuropeanCountries = [
+                    'ITALY',
+                    'FRANCE',
+                    'GERMANY',
+                    'SPAIN',
+                    'ROMANIA',
+                    'POLAND',
+                    'GREECE',
+                    'PORTUGAL',
+                    'IRELAND',
+                    'NETHERLANDS'
+                ];
+                
+                const countries2020 = {};
+                const countries2021 = {};
+                
+                // Calculate totals only for our selected countries
+                topEuropeanCountries.forEach(country => {
+                    countries2020[country] = aggregateStudents(data2020, country.toLowerCase());
+                    countries2021[country] = aggregateStudents(data2021, country.toLowerCase());
+                });
+                
+                return {
+                    labels: topEuropeanCountries,
+                    values2020: topEuropeanCountries.map(country => countries2020[country] || 0),
+                    values2021: topEuropeanCountries.map(country => countries2021[country] || 0),
+                    allCountries: topEuropeanCountries
+                };
+            }
+        }
+
+        function createComparisonChart() {
+            const ctx = document.getElementById('cityComparisonChart').getContext('2d');
+            let comparisonChart;
+            let currentData;
+            let displayCount = 10; // Number of countries to display at once
+
+            function updateChart(compareType, startIndex = 0) {
+                currentData = getComparisonData(compareType);
+                
+                if (comparisonChart) {
+                    comparisonChart.destroy();
+                }
+
+                // If comparing European countries, only show a subset
+                if (compareType === 'european_countries') {
+                    currentData.labels = currentData.labels.slice(startIndex, startIndex + displayCount);
+                    currentData.values2020 = currentData.values2020.slice(startIndex, startIndex + displayCount);
+                    currentData.values2021 = currentData.values2021.slice(startIndex, startIndex + displayCount);
+
+                    // Add country selector
+                    const chartContainer = document.querySelector('.chart-container');
+                    const existingSelector = chartContainer.querySelector('.country-selector');
+                    if (existingSelector) {
+                        existingSelector.remove();
+                    }
+
+                    const selectorContainer = document.createElement('div');
+                    selectorContainer.className = 'country-selector';
+                    selectorContainer.style.cssText = 'margin: 10px 0; text-align: center;';
+
+                    const selector = document.createElement('select');
+                    selector.style.cssText = 'width: 80%; padding: 5px; font-size: 12px;';
+                    
+                    // Add "All Countries" option
+                    const allOption = document.createElement('option');
+                    allOption.value = '';
+                    allOption.textContent = 'All Countries';
+                    selector.appendChild(allOption);
+
+                    // Add all countries as options
+                    currentData.allCountries.forEach(country => {
+                        const option = document.createElement('option');
+                        option.value = country;
+                        option.textContent = country;
+                        selector.appendChild(option);
+                    });
+
+                    selector.onchange = (e) => {
+                        const selectedCountry = e.target.value;
+                        if (selectedCountry === '') {
+                            // Show paginated view of all countries
+                            updateChart('european_countries', startIndex);
+                        } else {
+                            // Show single country comparison
+                            const countryIndex = currentData.allCountries.indexOf(selectedCountry);
+                            if (countryIndex !== -1) {
+                                const singleCountryData = {
+                                    labels: [selectedCountry],
+                                    values2020: [currentData.values2020[countryIndex]],
+                                    values2021: [currentData.values2021[countryIndex]],
+                                    allCountries: currentData.allCountries
+                                };
+                                currentData = singleCountryData;
+                                updateChartDisplay();
+                            }
+                        }
+                    };
+
+                    selectorContainer.appendChild(selector);
+                    chartContainer.insertBefore(selectorContainer, chartContainer.firstChild);
+                }
+
+                updateChartDisplay();
+            }
+
+            function updateChartDisplay() {
+                comparisonChart = new Chart(ctx, {
+                    type: 'bar',  
+                    data: {  
+                        labels: currentData.labels,
+                        datasets: [
+                            {
+                                label: '2020/2021',
+                                data: currentData.values2020,
+                                backgroundColor: 'rgba(44, 129, 192, 0.7)',
+                                borderColor: 'rgba(44, 129, 192, 1)',
+                                borderWidth: 1,
+                                barPercentage: 0.8,
+                                categoryPercentage: 0.4
+                            },
+                            {
+                                label: '2021/2022',
+                                data: currentData.values2021,
+                                backgroundColor: 'rgba(226, 99, 99, 0.7)',
+                                borderColor: 'rgba(226, 99, 99, 1)',
+                                borderWidth: 1,
+                                barPercentage: 0.8,
+                                categoryPercentage: 0.4
+                            }
+                        ]
+                    },  
+                    options: {  
+                        responsive: true,  
+                        maintainAspectRatio: false,  
+                        scales: {  
+                            x: {  
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {  
+                                    font: {
+                                        size: 8
+                                    },
+                                    maxRotation: 45,
+                                    minRotation: 45
+                                }  
+                            },  
+                            y: {  
+                                beginAtZero: true,  
+                                title: {
+                                    display: true,
+                                    text: 'Number of Students',
+                                    font: {
+                                        size: 10
+                                    },
+                                    padding: {
+                                        top: 0,
+                                        bottom: 0
+                                    }
+                                },
+                                ticks: {  
+                                    font: {
+                                        size: 8
+                                    },
+                                    callback: function(value) {
+                                        return value.toLocaleString();
+                                    }
+                                }  
+                            }  
+                        },  
+                        plugins: {  
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    font: {
+                                        size: 9
+                                    },
+                                    padding: 8
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: function(context) {
+                                    const type = document.getElementById('regionSelector').value;
+                                    return type === 'regions' ? 
+                                        'Regional Student Distribution' : 
+                                        'European Countries Student Distribution';
+                                },
+                                font: {
+                                    size: 11,
+                                    weight: 'bold'
+                                },
+                                padding: {
+                                    top: 5,
+                                    bottom: 8
+                                }
+                            }
+                        }  
+                    }  
+                });  
+
+                // Add navigation buttons for European countries view
+                if (document.getElementById('regionSelector').value === 'european_countries' && 
+                    (!currentData.labels || currentData.labels.length > 1)) {
+                    const chartContainer = document.querySelector('.chart-container');
+                    
+                    // Remove existing navigation if any
+                    const existingNav = chartContainer.querySelector('.chart-navigation');
+                    if (existingNav) {
+                        existingNav.remove();
+                    }
+
+                    const navigation = document.createElement('div');
+                    navigation.className = 'chart-navigation';
+                    navigation.style.cssText = 'text-align: center; margin-top: 10px;';
+
+                    const prevButton = document.createElement('button');
+                    prevButton.textContent = '← Previous';
+                    prevButton.style.cssText = 'margin-right: 10px; padding: 5px 10px;';
+                    prevButton.disabled = startIndex === 0;
+
+                    const nextButton = document.createElement('button');
+                    nextButton.textContent = 'Next →';
+                    nextButton.style.cssText = 'margin-left: 10px; padding: 5px 10px;';
+                    nextButton.disabled = startIndex + displayCount >= currentData.allCountries.length;
+
+                    const pageInfo = document.createElement('span');
+                    pageInfo.textContent = `Showing ${startIndex + 1}-${Math.min(startIndex + displayCount, currentData.allCountries.length)} of ${currentData.allCountries.length} countries`;
+                    pageInfo.style.cssText = 'margin: 0 10px;';
+
+                    prevButton.onclick = () => {
+                        if (startIndex > 0) {
+                            updateChart('european_countries', Math.max(0, startIndex - displayCount));
+                        }
+                    };
+
+                    nextButton.onclick = () => {
+                        if (startIndex + displayCount < currentData.allCountries.length) {
+                            updateChart('european_countries', startIndex + displayCount);
+                        }
+                    };
+
+                    navigation.appendChild(prevButton);
+                    navigation.appendChild(pageInfo);
+                    navigation.appendChild(nextButton);
+                    chartContainer.appendChild(navigation);
+                }
+            }
+
+            // Initial chart creation
+            const selectedType = document.getElementById('regionSelector').value;
+            updateChart(selectedType);
+
+            // Add event listener for type selector
+            document.getElementById('regionSelector').addEventListener('change', (e) => {
+                updateChart(e.target.value);
+            });
+        }
+
+        // Update the sidebar content function to use the new chart
+        const originalUpdateSidebarContent = updateSidebarContent;
+        updateSidebarContent = function(index) {
+            originalUpdateSidebarContent(index);
+            if (index === 1) {
+                setTimeout(createTrendChart, 100);
+            } else if (index === 2) {
+                setTimeout(createComparisonChart, 100);
+            }
+        };
+
+        // Add click event listener to document to close suggestions
+        document.addEventListener('click', function(e) {
+            const searchBar = document.getElementById('searchBar');
+            const suggestions = document.getElementById('suggestions');
+            const searchContainer = document.getElementById('searchContainer');
+            
+            // Check if click is outside search area
+            if (!searchContainer.contains(e.target) && !suggestions.contains(e.target)) {
+                suggestions.style.display = 'none';
+            }
+        });
+
+        // Prevent search bar click from closing suggestions
+        document.getElementById('searchBar').addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+
+        // Prevent suggestions click from closing itself
+        document.getElementById('suggestions').addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+    </script>  
+</body>  
+</html>  
