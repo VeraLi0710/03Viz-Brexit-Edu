@@ -157,14 +157,15 @@ body {
     top: 0;  
     left: 0;  
     width: 280px;
-    height: 100%;  
+    height: 100vh;  
     background-color: rgba(255, 255, 255, 0.45);
     padding: 4px 20px 0;
     box-shadow: 1px 0 8px rgba(0, 0, 0, 0.08);
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
     border-right: 1px solid rgba(0, 0, 0, 0.05);
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
 }  
 
 #progress-container {  
@@ -203,7 +204,7 @@ body {
 }  
 
 #next-button {  
-    width: 100%;  
+    width: calc(100% - 40px);
     padding: 10px;  
     background-color: #246ab4;
     color: white; 
@@ -215,9 +216,12 @@ body {
     text-transform: uppercase;
     font-size: 0.85em;
     transition: all 0.3s ease;
-    margin-top: 15px;
+    margin: 15px 20px;
     box-shadow: 0 2px 4px rgba(36, 106, 180, 0.15);
     font-family: 'Roobert', 'SF Pro Display', -apple-system, sans-serif;
+    position: absolute;
+    bottom: 45px;
+    left: 0;
 }  
 
 #next-button:hover {  
@@ -227,21 +231,31 @@ body {
 }  
 
 .sidebar-content {
+    position: absolute;
+    top: 50px;
+    left: 20px;
+    right: 20px;
+    height: calc(100vh - 190px);
     opacity: 0;
-    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-    display: none;
+    visibility: hidden;
+    transform: translateY(20px);
+    transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
     padding: 12px;
     background: rgba(255, 255, 255, 0.55);
     border-radius: 6px;
-    margin: 8px 0;
-    position: relative;
-    z-index: 1;
-    transform: translateY(10px);
+    overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    margin-bottom: 80px;
+}
+
+.sidebar-content::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
 }
 
 .sidebar-content.active {
     opacity: 1;
-    display: block;
+    visibility: visible;
     transform: translateY(0);
 }
 
@@ -330,7 +344,7 @@ body {
 .chart-container {
     position: relative;
     width: 100%;
-    height: 420px;
+    height: 450px;
     margin: 10px 0;
     background: rgba(255, 255, 255, 0.8);
     border-radius: 8px;
@@ -497,8 +511,7 @@ body {
     </div>  
     <button id="next-button">Next</button>  
 </div>  
-<div class="watermark">Created by @Yixing</div>
-    
+
     <script>  
         // Mapbox Token  
         mapboxgl.accessToken = 'pk.eyJ1IjoieWl4aW5nLWxpIiwiYSI6ImNtN3FtNWh6YjA0ancybnM4aGxjZnlheTEifQ.sKwaoIMQR65VQmYDbnu2MQ';  
@@ -917,15 +930,25 @@ const setupMapInteractions = (map, filteredFeatures, yearLabel) => {
         if (!feature) return;  
 
         const props = feature.properties;  
-        const totalStudents = props.students;  
         const providerName = props.he_provider || "Unnamed School";  
-        const countriesCount = getCountriesCount(filteredFeatures);  
+        
+        // Get data from the correct year's features
+        const isYear2020 = yearLabel.includes('2020');
+        const features = isYear2020 ? 
+            map2020.getSource('schools-points')._data.features : 
+            map2021.getSource('schools-points')._data.features;
+        
+        // Get total students for this school from the correct year
+        const totalStudents = getTotalStudents(features, providerName);
+        
+        // Get country data for this school from the correct year
+        const countriesCount = getCountriesCount(features.filter(f => f.properties.he_provider === providerName));
         const countryLabels = Object.keys(countriesCount);  
         const countryData = Object.values(countriesCount);  
 
         // Determine color based on year
-        const color = yearLabel.includes('2020') ? '#2c81c0' : '#e26363'; // Blue or Red
-        showPopup(providerName, yearLabel, totalStudents, countryLabels, countryData, color);  
+        const color = isYear2020 ? '#2c81c0' : '#e26363'; // Blue or Red
+        showPopup(providerName, yearLabel, totalStudents, countryLabels, countryData, color, features);  
     });  
 
     // Keep mouse hover effect unchanged  
@@ -940,8 +963,57 @@ const setupMapInteractions = (map, filteredFeatures, yearLabel) => {
     });  
 };  
 
+// Function to get EU and Non-EU student counts
+const getEUNonEUCounts = (features, providerName) => {
+    // First get all features for this school
+    const schoolFeatures = features.filter(f => f.properties.he_provider === providerName);
+    
+    // Try to get EU total from total_european_union
+    let euCount = schoolFeatures
+        .filter(f => f.properties.country && f.properties.country.toLowerCase() === 'total_european_union')
+        .reduce((sum, f) => sum + (f.properties.students || 0), 0);
+
+    // If EU total is 0, calculate from individual EU countries
+    if (euCount === 0) {
+        const euCountries = [
+            'austria', 'belgium', 'bulgaria', 'croatia', 'cyprus', 'czech_republic',
+            'denmark', 'estonia', 'finland', 'france', 'germany', 'greece', 'hungary',
+            'ireland', 'italy', 'latvia', 'lithuania', 'luxembourg', 'malta', 'netherlands',
+            'poland', 'portugal', 'romania', 'slovakia', 'slovenia', 'spain', 'sweden'
+        ];
+        
+        euCount = schoolFeatures
+            .filter(f => {
+                const country = f.properties.country && f.properties.country.toLowerCase();
+                return country && 
+                       !country.includes('total') && // Exclude all total-related entries
+                       euCountries.includes(country);
+            })
+            .reduce((sum, f) => sum + (f.properties.students || 0), 0);
+    }
+
+    // Calculate Non-EU total from other total_xxx entries (excluding pure 'total' and 'total_european_union')
+    const nonEuCount = schoolFeatures
+        .filter(f => {
+            const country = f.properties.country && f.properties.country.toLowerCase();
+            return country && 
+                   country.includes('total_') && 
+                   country !== 'total' &&
+                   country !== 'total_european_union';
+        })
+        .reduce((sum, f) => sum + (f.properties.students || 0), 0);
+
+    return {
+        eu: euCount,
+        nonEu: nonEuCount
+    };
+};
+
 // Show popup content
-const showPopup = (providerName, yearLabel, totalStudents, countryLabels, countryData, color) => {  
+const showPopup = (providerName, yearLabel, totalStudents, countryLabels, countryData, color, currentFeatures) => {  
+    // Get EU/Non-EU counts from the current year's features
+    const euCounts = getEUNonEUCounts(currentFeatures, providerName);
+
     const popupHTML = `  
         <div class="info-header">
             <div class="info-title">${providerName}</div>
@@ -951,9 +1023,15 @@ const showPopup = (providerName, yearLabel, totalStudents, countryLabels, countr
                 <button class="close-btn" onclick="document.getElementById('infoBox').style.display='none'">&times;</button>
             </div>
         </div>
-        <div style="font-size: 11px; margin-bottom: 2px;">
-            <div style="margin-bottom: 2px;">Selected Year: <strong class="year-label">${yearLabel}</strong></div>
-            <div>Total International Students: <strong class="total-students">${totalStudents}</strong></div>
+        <div class="info-content">
+            <div style="font-size: 11px; margin-bottom: 2px;">
+                <div style="margin-bottom: 2px;">Selected Year: <strong class="year-label">${yearLabel}</strong></div>
+                <div>Total International Students: <strong class="total-students">${totalStudents}</strong></div>
+                <div class="eu-counts" style="display: flex; gap: 20px; margin-top: 4px; font-size: 10px; color: #666;">
+                    <div>EU Students: <strong style="color: #246ab4">${euCounts.eu.toLocaleString()}</strong> (${((euCounts.eu / totalStudents) * 100).toFixed(1)}%)</div>
+                    <div>Non-EU Students: <strong style="color: #e26363">${euCounts.nonEu.toLocaleString()}</strong> (${((euCounts.nonEu / totalStudents) * 100).toFixed(1)}%)</div>
+                </div>
+            </div>
         </div>
         <div style="position: relative; height: 200px;">
             <canvas id="countryChart"></canvas>
@@ -972,32 +1050,60 @@ const showPopup = (providerName, yearLabel, totalStudents, countryLabels, countr
             
             const year = button.dataset.year;
             if (year === '2020') {
-                updateChart(countryLabels, countryData, '#2c81c0');
+                const features2020 = map2020.getSource('schools-points')._data.features;
+                const schoolFeatures2020 = features2020.filter(f => f.properties.he_provider === providerName);
+                // Get total students for this school from 2020 data
+                const students = getTotalStudents(features2020, providerName);
+                // Get EU/Non-EU counts from 2020 data
+                const euCounts = getEUNonEUCounts(features2020, providerName);
+                // Get country data for chart from 2020 data
+                const data2020 = getCountriesCount(schoolFeatures2020);
+                updateChart(Object.keys(data2020), Object.values(data2020), '#2c81c0');
                 document.querySelector('.year-label').textContent = '2020/2021 (Pre-Brexit)';
-                const feature = map2020.querySourceFeatures('schools-points', {
-                    filter: ['==', ['get', 'he_provider'], providerName]
-                })[0];
-                if (feature) {
-                    document.querySelector('.total-students').textContent = feature.properties.students;
-                }
+                document.querySelector('.total-students').textContent = students;
+                // Update EU/Non-EU counts display
+                const euPercentage = ((euCounts.eu / students) * 100).toFixed(1);
+                const nonEuPercentage = ((euCounts.nonEu / students) * 100).toFixed(1);
+                document.querySelector('.eu-counts').innerHTML = `
+                    <div>EU Students: <strong style="color: #246ab4">${euCounts.eu.toLocaleString()}</strong> (${euPercentage}%)</div>
+                    <div>Non-EU Students: <strong style="color: #e26363">${euCounts.nonEu.toLocaleString()}</strong> (${nonEuPercentage}%)</div>`;
             } else {
-                const feature = map2021.querySourceFeatures('schools-points', {
-                    filter: ['==', ['get', 'he_provider'], providerName]
-                })[0];
-                if (feature) {
-                    const data2021 = getCountriesCount(map2021.getSource('schools-points')._data.features);
-                    updateChart(Object.keys(data2021), Object.values(data2021), '#e26363');
-                    document.querySelector('.year-label').textContent = '2021/2022 (Post-Brexit)';
-                    document.querySelector('.total-students').textContent = feature.properties.students;
-                }
+                const features2021 = map2021.getSource('schools-points')._data.features;
+                const schoolFeatures2021 = features2021.filter(f => f.properties.he_provider === providerName);
+                // Get total students for this school from 2021 data
+                const students = getTotalStudents(features2021, providerName);
+                // Get EU/Non-EU counts from 2021 data
+                const euCounts = getEUNonEUCounts(features2021, providerName);
+                // Get country data for chart from 2021 data
+                const data2021 = getCountriesCount(schoolFeatures2021);
+                updateChart(Object.keys(data2021), Object.values(data2021), '#e26363');
+                document.querySelector('.year-label').textContent = '2021/2022 (Post-Brexit)';
+                document.querySelector('.total-students').textContent = students;
+                // Update EU/Non-EU counts display
+                const euPercentage = ((euCounts.eu / students) * 100).toFixed(1);
+                const nonEuPercentage = ((euCounts.nonEu / students) * 100).toFixed(1);
+                document.querySelector('.eu-counts').innerHTML = `
+                    <div>EU Students: <strong style="color: #246ab4">${euCounts.eu.toLocaleString()}</strong> (${euPercentage}%)</div>
+                    <div>Non-EU Students: <strong style="color: #e26363">${euCounts.nonEu.toLocaleString()}</strong> (${nonEuPercentage}%)</div>`;
             }
         });
     });
 
     setTimeout(() => {
-    updateChart(countryLabels, countryData, color);  
+        updateChart(countryLabels, countryData, color);  
     }, 50);
 };  
+
+// Function to get total students from pure 'total' entries
+const getTotalStudents = (features, providerName) => {
+    return features
+        .filter(f => 
+            f.properties.he_provider === providerName && 
+            f.properties.country && 
+            f.properties.country.toLowerCase() === 'total'
+        )
+        .reduce((sum, f) => sum + (f.properties.students || 0), 0);
+};
 
 const updateChart = (countryLabels, countryData, color) => {  
     const ctx = document.getElementById('countryChart');  
@@ -1105,7 +1211,8 @@ const getCountriesCount = (filteredFeatures) => {
         const students = f.properties.students;  
         if (country && 
             country.trim() !== "" && 
-            !country.toLowerCase().includes("total") &&
+            country.toLowerCase() !== "total" &&  // Exclude pure total
+            !country.toLowerCase().includes("total_") &&  // Exclude total_xxx
             !country.toLowerCase().includes("specified")) {  
             // Format country name: remove parentheses and content inside, replace underscores with spaces, capitalize first letter of each word
             country = country
@@ -1146,14 +1253,18 @@ const getCountriesCount = (filteredFeatures) => {
 
         const showSchoolInfo = (feature, map) => {  
             const props = feature.properties;  
-            const totalStudents = props.students;  
             const providerName = props.he_provider || "Unnamed School";  
             const yearLabel = "2020/2021 (Pre-Brexit)";  
-            const countriesCount = getCountriesCount(map.getSource('schools-points')._data.features);
+            const features2020 = map2020.getSource('schools-points')._data.features;
+            
+            // Get total students for this school from 2020 data
+            const totalStudents = getTotalStudents(features2020, providerName);
+            // Get country data for this school from 2020 data
+            const countriesCount = getCountriesCount(features2020.filter(f => f.properties.he_provider === providerName));
             const countryLabels = Object.keys(countriesCount);  
             const countryData = Object.values(countriesCount);  
 
-            showPopup(providerName, yearLabel, totalStudents, countryLabels, countryData, '#2c81c0');
+            showPopup(providerName, yearLabel, totalStudents, countryLabels, countryData, '#2c81c0', features2020);
 
             const coordinates = feature.geometry.coordinates;  
             map.flyTo({ center: coordinates, zoom: 10 });  
@@ -1264,15 +1375,18 @@ const getCountriesCount = (filteredFeatures) => {
             const contents = document.querySelectorAll('.sidebar-content');
             contents.forEach((content, i) => {
                 if (i === index) {
-                    content.style.display = 'block';
+                    content.style.visibility = 'visible';
                     requestAnimationFrame(() => {
                         content.classList.add('active');
                     });
                 } else {
                     content.classList.remove('active');
-            setTimeout(() => {  
-                        content.style.display = 'none';
-                    }, 500);
+                    content.addEventListener('transitionend', function handler() {
+                        if (!content.classList.contains('active')) {
+                            content.style.visibility = 'hidden';
+                        }
+                        content.removeEventListener('transitionend', handler);
+                    });
                 }
             });
         }
@@ -1421,13 +1535,13 @@ const getCountriesCount = (filteredFeatures) => {
                     plugins: {
                         title: {
                             display: true,
-                            text: 'Click legend to show/hide',
+                            text: '👆 Click legend items to show/hide lines',
                             padding: {
                                 top: 0,
                                 bottom: 2
                             },
                             font: {
-                                size: 8,
+                                size: 10,
                                 style: 'italic',
                                 weight: 'normal'
                             },
@@ -1437,34 +1551,38 @@ const getCountriesCount = (filteredFeatures) => {
                         legend: {
                             position: 'top',
                             align: 'center',
-                            onClick: (e, legendItem, legend) => {
-                                const index = legendItem.datasetIndex;
-                                const ci = legend.chart;
-                                const dataset = ci.data.datasets[index];
-                                dataset.hidden = !dataset.hidden;
-                                legendItem.hidden = dataset.hidden;
-                                
-                                let maxValue = 0;
-                                ci.data.datasets.forEach((dataset) => {
-                                    if (!dataset.hidden) {
-                                        maxValue = Math.max(maxValue, ...dataset.data);
-                                    }
-                                });
-                                
-                                ci.options.scales.y.max = Math.ceil(maxValue / 10000) * 10000;
-                                ci.update();
-                            },
                             labels: {
                                 boxWidth: 12,
                                 padding: 4,
                                 font: {
                                     size: 9
                                 },
-                                usePointStyle: false
+                                usePointStyle: false,
+                                generateLabels: function(chart) {
+                                    const labels = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+                                    labels.forEach(label => {
+                                        const dataset = chart.data.datasets[label.datasetIndex];
+                                        label.fillStyle = dataset.hidden ? 'rgba(211, 211, 211, 0.5)' : dataset.backgroundColor;
+                                        label.strokeStyle = dataset.hidden ? 'rgba(211, 211, 211, 0.8)' : dataset.borderColor;
+                                    });
+                                    return labels;
+                                }
+                            },
+                            onHover: (e, legendItem, legend) => {
+                                const canvas = legend.chart.canvas;
+                                if (legendItem) {
+                                    canvas.style.cursor = 'pointer';
+                                } else {
+                                    canvas.style.cursor = 'default';
+                                }
+                            },
+                            onLeave: (e, legendItem, legend) => {
+                                legend.chart.canvas.style.cursor = 'default';
                             },
                             maxHeight: 65,
                             maxWidth: 1000,
-                            itemWidth: 85
+                            itemWidth: 85,
+                            hitRadius: 8
                         },
                         subtitle: {
                             display: true,
