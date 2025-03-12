@@ -220,7 +220,7 @@ body {
     box-shadow: 0 2px 4px rgba(36, 106, 180, 0.15);
     font-family: 'Roobert', 'SF Pro Display', -apple-system, sans-serif;
     position: absolute;
-    bottom: 45px;
+    bottom: 40px;
     left: 0;
 }  
 
@@ -235,7 +235,7 @@ body {
     top: 50px;
     left: 20px;
     right: 20px;
-    height: calc(100vh - 190px);
+    height: calc(100vh - 180px);
     opacity: 0;
     visibility: hidden;
     transform: translateY(20px);
@@ -480,9 +480,9 @@ body {
         <div class="sidebar-tip">Tap the map to see the composition of international students in detail!!</div>
     </div>
     <div class="sidebar-content" id="content-2">
-        <h2 class="sidebar-title">International Student Trends Post-Brexit (2006-2023)</h2>
+        <h2 class="sidebar-title">International Student Trends (2006-2023)</h2>
         <p class="sidebar-text">
-            From 2006 to 2020, EU student numbers held steady at <strong style="color: #246ab4">65,000</strong> ➜ post-Brexit policies triggered a sharp decline to <strong style="color: #246ab4">31,000</strong>, while enrollment from <strong style="color: #246ab4">China</strong> and <strong style="color: #246ab4">India</strong> showed sustained growth. Explore these shifting patterns by selecting different regions in the chart below.
+            From 2006 to 2020, EU student numbers held steady at <strong style="color: #246ab4">65,000</strong> ➜ post-Brexit policies triggered a sharp decline to <strong style="color: #246ab4">31,000</strong>, while enrollment from <strong style="color: #246ab4">China</strong> and <strong style="color: #246ab4">India</strong> showed sustained growth. Explore  these changing trends by selecting different regions in the chart below.
         </p>
         <div class="chart-container" id="trendChart">
             <canvas id="lineChart"></canvas>
@@ -494,7 +494,7 @@ body {
             As we zoom in closer, a clear shift emerges in the global student landscape. Asian countries now contribute <strong style="color: #246ab4">60%</strong> of international students, with notable increases from <strong style="color: #246ab4">South</strong> and <strong style="color: #246ab4">East Asia</strong>. Switch between the regional view and European countries to discover how different areas have adapted to the post-Brexit environment.
         </p>
         <div style="margin: 15px 0;">
-            <select id="regionSelector" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em;">
+            <select id="regionSelector" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.8em;">
                 <option value="regions">Regions Comparison</option>
                 <option value="european_countries">European Countries</option>
             </select>
