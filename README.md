@@ -1,4 +1,3 @@
-# Navigating New Horizons: 
 # The Impact of Brexit on International Student Enrollment in UK Education
 
 This repository contains visualisation tools for analyzing the impact of Brexit on international student migration to UK universities. The project utilizes HESA data and incorporates various technologies, including Python for data preparation, Mapbox GL JS for base mapping, and D3.js for dynamic visualisations.  
