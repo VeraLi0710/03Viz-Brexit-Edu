@@ -16,3 +16,4 @@ This repository contains visualisation tools for analyzing the impact of Brexit 
 
 ## 🌐 Online Exploration  
 Access the interactive visualisation [here](https://verali0710.github.io/03Viz-Brexit-Edu/).  
+![Map Example](plots/web_example.jpg)  
