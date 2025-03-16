@@ -10,7 +10,7 @@ This repository contains visualisation tools for analyzing the impact of Brexit 
 - HESA data from: [Where do HE students come from? | HESA](https://www.hesa.ac.uk/data-and-analysis/students/where-from).  
 - Comparison plugin sourced from: [Mapbox GL Compare](https://github.com/mapbox/mapbox-gl-compare).
 
----  
+
 
 ## 🌐 Online Exploration  
 Access the interactive visualisation [here](https://verali0710.github.io/03Viz-Brexit-Edu/).  
